@@ -215,18 +215,24 @@ effect is shown.")
 
 (defvar inertias-global-minor-mode-hook nil)
 
-(define-minor-mode inertias-global-minor-mode
-  "Inertial scrolling mode"
+(define-minor-mode inertias-minor-mode
+  "Inertial scroll mode"
   :init-value nil
-  :global t
   :lighter " IS"
   :keymap inertias-minor-mode-child-map
-  :group 'inertias-global-mode
-  (if inertias-global-minor-mode
-      (progn
-        (set-keymap-parent inertias-minor-mode-child-map 
-                           inertias-global-minor-mode-map)
-        (run-hooks 'inertias-global-minor-mode-hook))))
+  :group 'inertias-scroll
+  (when inertias-minor-mode
+    (set-keymap-parent inertias-minor-mode-child-map 
+                       inertias-global-minor-mode-map)))
+
+(define-global-minor-mode inertias-global-minor-mode
+  inertias-minor-mode inertias-minor-mode-maybe
+  :group 'inertias-scroll)
+
+(defun inertias-minor-mode-maybe ()
+  "What buffer `inertias-minor-mode' prefers."
+  (when (not (minibufferp (current-buffer)))
+    (inertias-minor-mode 1)))
 
 ;;; Window-Velocity map
 
@@ -344,6 +350,18 @@ value.")
                (with-selected-window i
                  (scroll-up num))))))
 
+(defvar inertias-post-command-ignores nil
+  "List of command using `inertias-up' or `inertias-down'")
+
+(defun inertias-post-command ()
+  (unless (or 
+	   (and (symbolp this-command) 
+		(string-match "^inertias-" (symbol-name this-command)))
+	   (memq this-command inertias-post-command-ignores))
+    (inertias-stop)))
+
+;; To activate add following line
+;; (add-hook 'pre-command-hook 'inertias-post-command)
 
 (provide 'inertial-scroll)
 ;;; inertial-scroll.el ends here
