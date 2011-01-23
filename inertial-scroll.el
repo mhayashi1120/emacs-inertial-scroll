@@ -225,13 +225,17 @@ effect is shown.")
     (set-keymap-parent inertias-minor-mode-child-map 
                        inertias-global-minor-mode-map)))
 
+;; some mode such as `mew-summary-mode', have no `kill-all-local-variables'
+;; this make suppress global minor mode function.
+;; (add-hook 'mew-summary-mode-hook 'inertias-minor-mode-maybe)
+
 (define-global-minor-mode inertias-global-minor-mode
   inertias-minor-mode inertias-minor-mode-maybe
   :group 'inertias-scroll)
 
 (defun inertias-minor-mode-maybe ()
   "What buffer `inertias-minor-mode' prefers."
-  (when (not (minibufferp (current-buffer)))
+  (unless (minibufferp (current-buffer))
     (inertias-minor-mode 1)))
 
 ;;; Window-Velocity map
@@ -350,18 +354,18 @@ value.")
                (with-selected-window i
                  (scroll-up num))))))
 
-(defvar inertias-post-command-ignores nil
+(defvar inertias-pre-command-ignores nil
   "List of command using `inertias-up' or `inertias-down'")
 
-(defun inertias-post-command ()
+(defun inertias-pre-command ()
   (unless (or 
 	   (and (symbolp this-command) 
 		(string-match "^inertias-" (symbol-name this-command)))
-	   (memq this-command inertias-post-command-ignores))
+	   (memq this-command inertias-pre-command-ignores))
     (inertias-stop)))
 
-;; To activate add following line
-;; (add-hook 'pre-command-hook 'inertias-post-command)
+;; To activate the function add following to .emacs
+;; (add-hook 'pre-command-hook 'inertias-pre-command)
 
 (provide 'inertial-scroll)
 ;;; inertial-scroll.el ends here
