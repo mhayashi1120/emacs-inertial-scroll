@@ -106,6 +106,7 @@ effect is shown.")
 ;;; Macros
 
 (defmacro inertias-jslambda (args &rest body)
+  (declare (indent 1))
   (let ((argsyms (loop for i in args collect (gensym))))
   `(lambda (,@argsyms)
      (lexical-let (callee)
@@ -125,13 +126,13 @@ effect is shown.")
             (retsym (gensym)))
         `(setq ,chain 
                (deferred:nextc ,chain 
-                 (inertias-jslambda
-                  (x) (if ,condition 
-                          (deferred:nextc 
-                            (let ((,retsym (progn ,@body)))
-                              (if (deferred-p ,retsym) ,retsym
-                                (deferred:wait ,wait-time)))
-                            callee)))))))
+                 (inertias-jslambda (x)
+                   (if ,condition 
+                       (deferred:nextc 
+                         (let ((,retsym (progn ,@body)))
+                           (if (deferred-p ,retsym) ,retsym
+                             (deferred:wait ,wait-time)))
+                         callee)))))))
      ;; statement
      (t
       `(setq ,chain 
@@ -246,6 +247,10 @@ effect is shown.")
 value.")
 
 (defun inertias-window-velocity-get (window)
+  (setq inertias-window-velocity-alist
+        (remove-if-not
+         (lambda (pair) (window-live-p (car pair)))
+         inertias-window-velocity-alist))
   (assq window inertias-window-velocity-alist))
 
 (defun inertias-window-velocity-set (window velocity)
