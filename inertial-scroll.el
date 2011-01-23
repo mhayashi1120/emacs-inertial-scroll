@@ -227,6 +227,7 @@ effect is shown.")
 
 ;; some mode such as `mew-summary-mode', have no `kill-all-local-variables'
 ;; this make suppress global minor mode function.
+;; This case put following to your .emacs
 ;; (add-hook 'mew-summary-mode-hook 'inertias-minor-mode-maybe)
 
 (define-global-minor-mode inertias-global-minor-mode
