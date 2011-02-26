@@ -155,16 +155,66 @@ effect is shown.")
 
 ;;; Commands
 
-(defun inertias-up ()
+(defun inertias-up-command (&optional arg)
+  "inertial scroll like `scroll-up-command' "
+  (interactive "P")
+  (let ((numeric (and arg (prefix-numeric-value arg))))
+    (cond
+     ((null scroll-error-top-bottom)
+      (inertias-up numeric))
+     ((eq arg '-)
+      (inertias-down-command))
+     ((and numeric (< numeric 0))
+      (inertias-down-command (- numeric)))
+     ((eobp)
+      ;; signal error
+      (inertias-up numeric))
+     (t
+      (condition-case nil
+          (inertias-up numeric)
+        (end-of-buffer
+         (if numeric
+             (forward-line numeric)
+           (goto-char (point-max)))))))))
+
+(defun inertias-down-command (&optional arg)
+  "inertial scroll like `scroll-down-command' "
+  (interactive "P")
+  (let ((numeric (and arg (prefix-numeric-value arg))))
+    (cond
+     ((null scroll-error-top-bottom)
+      (inertias-down numeric))
+     ((eq arg '-)
+      (inertias-up-command))
+     ((and numeric (< numeric 0))
+      (inertias-up-command (- numeric)))
+     ((bobp)
+      ;; signal error
+      (inertias-down numeric))
+     (t
+      (condition-case nil
+          (inertias-down numeric)
+        (beginning-of-buffer
+         (if numeric
+             (forward-line (- numeric))
+           (goto-char (point-min)))))))))
+
+(defun inertias-up (&optional arg)
   (interactive)
+  (inertias-check-end-of-buffer)
   (inertias-scrolling
-   inertias-initial-velocity
+   (or 
+    (and arg (inertias-calculate-scroll-velocity arg))
+    inertias-initial-velocity)
    (selected-window)))
 
-(defun inertias-down ()
+(defun inertias-down (&optional arg)
   (interactive)
+  (inertias-check-beginning-of-buffer)
   (inertias-scrolling 
-   (- inertias-initial-velocity)
+   (- (or 
+       (and arg (inertias-calculate-scroll-velocity arg))
+       inertias-initial-velocity))
    (selected-window)))
 
 (defun inertias-up-wheel ()
@@ -247,6 +297,7 @@ effect is shown.")
 value.")
 
 (defun inertias-window-velocity-get (window)
+  ;; clean up alist
   (setq inertias-window-velocity-alist
         (remove-if-not
          (lambda (pair) (window-live-p (car pair)))
@@ -359,6 +410,67 @@ value.")
           do (ignore-errors
                (with-selected-window i
                  (scroll-up num))))))
+
+;; (defvar inertias-control-scroll-p nil)
+;; (defun inertias-control-scroll-up (num)
+;;   (let ((inertias-control-scroll-p t))
+;;     (scroll-up num)))
+
+;; (defadvice scroll-up
+;;   (around inertias-scroll-up-ad (&optional arg) activate)
+;;   (if inertias-control-scroll-p
+;;       ad-do-it
+;;     (inertias-up arg)))
+
+;; (defadvice scroll-down
+;;   (around inertias-scroll-down-ad (&optional arg) activate)
+;;   (if inertias-control-scroll-p
+;;       ad-do-it
+;;     (inertias-down arg)))
+
+;; for testing inverse function to `inertias-calculate-scroll-velocity'
+;; (FIXME: not a ``inverse function''? This is not exactly inverse.)
+(defun inertias-default-scroll-lines (&optional init-vel interval friction)
+  (let* ((count 0)
+         (vel (or init-vel inertias-initial-velocity))
+         (dt  (/ (or interval inertias-update-time) 1000.0))
+         (frc (* dt (or friction inertias-friction)))
+         (scrnum 0)
+         (pos 0))
+    (catch 'done
+      (while t
+        (incf pos (* dt vel))           ; move forward/backward
+        (setq scrnum (floor pos))       ; scroll line
+        (decf vel frc)                  ; deceleration
+        (when (>= 0 vel)
+          (throw 'done count))
+        (decf pos scrnum)
+        (incf count scrnum)))))
+
+(defun inertias-calculate-scroll-velocity (count)
+  "calculate velocity that satisfy scroll COUNT lines."
+  (let* ((dt  (/ inertias-update-time 1000.0))
+         (frc (* dt inertias-friction))
+         (scrnum 0)
+         (pos 0)
+         (vel 0))
+    (catch 'done
+      (while t
+        (incf vel frc)
+        (incf pos (* dt vel))
+        (when (> pos count)
+          ;; less than correct value / more than correct value...
+          (throw 'done (1+ (floor vel))))))))
+
+(defun inertias-check-end-of-buffer ()
+  (when (= (window-end) (point-max))
+    ;;TODO hard coding. In the first place not natural move...
+    (when (< (count-lines (point) (point-max)) 5)
+      (signal 'end-of-buffer nil))))
+
+(defun inertias-check-beginning-of-buffer ()
+  (when (= (window-start) (point-min))
+    (signal 'beginning-of-buffer nil)))
 
 (defvar inertias-pre-command-ignores nil
   "List of command using `inertias-up' or `inertias-down'")
